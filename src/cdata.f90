@@ -715,5 +715,12 @@ module Cdata
 !
   real :: tau_aver1 = 1.0
 !
+!devika:variables for imposed density, magnetic and cosmic ray fields.
+!
+! imposed density arrays.
+  integer :: rho_imp,grho_imp, d2rho_imp,d6rho_imp
+! imposed magnetic field arrays.
+  integer :: bb_imp,del2_imp,bij_imp,aa_imp,aij_impx,aij_impy,aij_impz
+  integer :: bij_impx,bij_impy,bij_impz
 !***********************************************************************
 endmodule Cdata

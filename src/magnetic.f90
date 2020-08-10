@@ -119,6 +119,8 @@ module Magnetic
   real, dimension(2) :: magnetic_zaver_range=(/-max_real,max_real/)
   real, dimension(nx) :: xmask_mag
   real, dimension(nz) :: zmask_mag
+  real, dimension(:,:,:,:), pointer :: imposed_b_field
+  real, dimension(:,:,:,:), pointer :: imposed_a_field
   real :: sheet_position=1.,sheet_thickness=0.1,sheet_hyp=1.
   real :: t_bext = 0.0, t0_bext = 0.0
   real :: radius=0.1, epsilonaa=0.01, x0aa=0.0, y0aa=0.0, z0aa=0.0
@@ -229,6 +231,7 @@ module Magnetic
   logical :: lambipolar_diffusion=.false.
   logical :: lskip_projection_aa=.false., lno_second_ampl_aa=.true.
   logical :: lscale_tobox=.true.
+  logical :: limposed_magnetic_field= .false.
 !
   namelist /magnetic_init_pars/ &
       B_ext, B0_ext, t_bext, t0_bext, J_ext, lohmic_heat, radius, epsilonaa, &
@@ -255,7 +258,7 @@ module Magnetic
       lbx_ext_global,lby_ext_global,lbz_ext_global, dipole_moment, &
       lax_ext_global,lay_ext_global,laz_ext_global, eta_jump2, &
       sheet_position,sheet_thickness,sheet_hyp,ll_sh,mm_sh, &
-      source_zav,nzav,indzav,izav_start, k1hel, k2hel, lbb_sph_as_aux
+      source_zav,nzav,indzav,izav_start, k1hel, k2hel, lbb_sph_as_aux,limposed_magnetic_field
 !
 ! Run parameters
 !
@@ -1039,16 +1042,18 @@ module Magnetic
       use Magnetic_meanfield, only: initialize_magn_mf
       use BorderProfiles, only: request_border_driving
       use FArrayManager
-      use SharedVariables, only: put_shared_variable
+      use SharedVariables, only: put_shared_variable, get_shared_variable
       use EquationOfState, only: cs0
       use Initcond
       use Forcing, only: n_forcing_cont
       use Yinyang_mpi, only: initialize_zaver_yy
+      use InitialCondition, only: initial_condition_aa
       !use Slices_methods, only: alloc_slice_buffers
 !
       real, dimension (mx,my,mz,mfarray) :: f
       integer :: i,j,myl,nycap
       real :: J_ext2, eta_zdep_exponent
+!      real,dimension(:,:,:,:,:),pointer :: imposed_magnetic_field
 !
 !  Set ljj_as_comaux=T and get kernels
 !   if lsmooth_jj is used
@@ -1711,6 +1716,12 @@ module Magnetic
               'non-magnetic simulation. The field is given by initaa=',initaa
         endif
         call init_aa(f)
+      endif
+      
+      if (limposed_magnetic_field) then
+        call initial_condition_aa(f)
+        call get_shared_variable('imposed_b_field',imposed_b_field)
+        call get_shared_variable('imposed_b_field',imposed_a_field)
       endif
 !
 !  Break if Galilean-invariant advection (fargo) is used without
@@ -3308,10 +3319,19 @@ module Magnetic
       integer :: i,j,ix
 ! aa
       if (lpenc_loc(i_aa)) p%aa=f(l1:l2,m,n,iax:iaz)
+      if (lpenc_loc(i_aa) .and. limposed_magnetic_field) then
+         p%aa=p%aa +imposed_b_field(l1:l2,n,:,aa_imp)
+      endif
+
 ! a2
       if (lpenc_loc(i_a2)) call dot2_mn(p%aa,p%a2)
 ! aij
       if (lpenc_loc(i_aij)) call gij(f,iaa,p%aij,1)
+      if (lpenc_loc(i_aij) .and. limposed_magnetic_field) then
+        p%aij(l1:l2,1,:)=p%aij(l1:l2,1,:)+imposed_b_field(l1:l2,n,:,aij_impx)
+        p%aij(l1:l2,2,:)=p%aij(l1:l2,2,:)+imposed_b_field(l1:l2,n,:,aij_impy)
+        p%aij(l1:l2,3,:)=p%aij(l1:l2,3,:)+imposed_b_field(l1:l2,n,:,aij_impz)
+      endif
 ! diva
       if (lpenc_loc(i_diva)) then
 !     ccyang: Note that the following two methods do not give exactly
@@ -3372,6 +3392,7 @@ module Magnetic
 !          call get_global(bb_ext_pot,m,n,'B_ext_pot')
 !          p%bb=p%bb+bb_ext_pot
 !        endif
+        if(limposed_magnetic_field) p%bb = p%bb + imposed_b_field(l1:l2,n,:,bb_imp)
 !
 !  Add external B-field.
 !
@@ -3427,7 +3448,9 @@ module Magnetic
         enddo
       endif
 ! uga
-      if (lpenc_loc(i_uga)) call u_dot_grad(f,iaa,p%aij,p%uu,p%uga,UPWIND=lupw_aa)
+      if (lpenc_loc(i_uga)) then
+        call u_dot_grad(f,iaa,p%aij,p%uu,p%uga,UPWIND=lupw_aa)
+      endif
 !
 ! uga for fargo
 !
@@ -3450,7 +3473,7 @@ module Magnetic
 !  For non-cartesian coordinates jj is always required for del2a=graddiva-jj
 !  fred: del2a now calculated directly if required and gradient tensor available
 !  reduced calls to exclude unnecessary calculation of unwanted variables
-!      if (lpenc_loc(i_bij) .or. lpenc_loc(i_del2a) .or. lpenc_loc(i_graddiva) .or. &
+!     if (lpenc_loc(i_bij) .or. lpenc_loc(i_del2a) .or. lpenc_loc(i_graddiva) .or. &
 !          lpenc_loc(i_jj) ) then
 !        if (lcartesian_coords) then
 !          call gij_etc(f,iaa,p%aa,p%aij,p%bij,p%del2a,p%graddiva)
@@ -3474,6 +3497,12 @@ module Magnetic
       if (lpenc_loc(i_bij).and.lpenc_loc(i_del2a)) then
         if (lcartesian_coords) then
           call gij_etc(f,iaa,BIJ=p%bij,DEL2=p%del2a)
+          if(limposed_magnetic_field) p%del2a=p%del2a + imposed_b_field(l1:l2,n,:,del2_imp)
+          if (limposed_magnetic_field) then
+             p%bij(l1:l2,1,:)=p%bij(l1:l2,1,:) + imposed_b_field(l1:l2,n,:,bij_impx)
+             p%bij(l1:l2,2,:)=p%bij(l1:l2,2,:) + imposed_b_field(l1:l2,n,:,bij_impy)
+             p%bij(l1:l2,3,:)=p%bij(l1:l2,3,:) + imposed_b_field(l1:l2,n,:,bij_impz)
+          endif
           if (lpenc_loc(i_jj) .and. .not. ljj_as_comaux) call curl_mn(p%bij,p%jj)
         else
           call gij_etc(f,iaa,AA=p%aa,AIJ=p%aij,BIJ=p%bij,DEL2=p%del2a,&
@@ -3495,6 +3524,8 @@ module Magnetic
       elseif (lpenc_loc(i_del2a).and..not.lpenc_loc(i_bij)) then
         if (lcartesian_coords) then
           call gij_etc(f,iaa,DEL2=p%del2a)
+            if(limposed_magnetic_field) p%del2a=p%del2a + imposed_b_field(l1:l2,n,:,del2_imp)
+
         else
           call gij_etc(f,iaa,AA=p%aa,AIJ=p%aij,DEL2=p%del2a,&
                        LCOVARIANT_DERIVATIVE=lcovariant_magnetic)
@@ -4874,6 +4905,9 @@ module Magnetic
           call cross(p%uu,B_ext,uxb_upw)
         else
           uxb_upw=0.
+        endif
+        if (limposed_magnetic_field) then
+          call cross(p%uu,imposed_b_field(l1:l2,n,:,bb_imp),uxb_upw)
         endif
 !
 !  Add u_k A_k,j and `upwinded' advection term.

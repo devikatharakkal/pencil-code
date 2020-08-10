@@ -132,6 +132,8 @@ module Density
   logical :: ldensity_slope_limited=.false.
   real :: h_sld_dens=2.0, nlf_sld_dens=1.0
   real, dimension(3) :: beta_glnrho_global=0.0, beta_glnrho_scaled=0.0
+  real, dimension(:,:,:,:),pointer :: imposed_density
+  logical :: limposed_density =.false.
 !
   namelist /density_init_pars/ &
       ampllnrho, initlnrho, widthlnrho, rho_left, rho_right, lnrho_const, &
@@ -151,7 +153,8 @@ module Density
       lreduced_sound_speed, lrelativistic_eos, &
       lscale_to_cs2top, density_zaver_range, &
       ieos_profile, width_eos_prof, &
-      lconserve_total_mass, total_mass, ireference_state, lrho_flucz_as_aux
+      lconserve_total_mass, total_mass, ireference_state, lrho_flucz_as_aux, &
+      limposed_density
 !
   namelist /density_run_pars/ &
       cdiffrho, diffrho, diffrho_hyper3, diffrho_hyper3_mesh, diffrho_shock, &
@@ -345,7 +348,7 @@ module Density
       use Gravity, only: lnumerical_equilibrium
       use Sub, only: stepdown,der_stepdown, erfunc,step
       use SharedVariables, only: put_shared_variable, get_shared_variable
-      use InitialCondition, only: initial_condition_all
+      use InitialCondition, only: initial_condition_all,initial_condition_lnrho
       use Mpicomm, only: mpiallreduce_sum
 !
       real, dimension (mx,my,mz,mfarray) :: f
@@ -927,6 +930,12 @@ module Density
         total_mass = mean_density(f) * box_volume
         if (lreference_state) total_mass = total_mass + reference_state_mass
       endif
+      
+     if(limposed_density) then
+        call initial_condition_lnrho(f) 
+        call get_shared_variable('imposed_density',imposed_density)
+        if (ldensity_nolog) f(:,:,:,irho) = exp(f(:,:,:,ilnrho))
+     endif
 !
     endsubroutine initialize_density
 !***********************************************************************
@@ -2211,6 +2220,7 @@ module Density
 ! rho
       p%rho=f(l1:l2,m,n,irho)
       if (lreference_state) p%rho=p%rho+reference_state(:,iref_rho)
+      if(limposed_density) p%rho=p%rho+imposed_density(l1:l2,m,n,rho_imp)
 ! rho1
       if (lpenc_loc(i_rho1)) p%rho1=1.0/p%rho
 ! lnrho
@@ -2219,6 +2229,7 @@ module Density
       if (lpenc_loc(i_glnrho).or.lpenc_loc(i_grho)) then
 !
         call grad(f,irho,p%grho)
+        if(limposed_density) p%grho(:,1)=p%grho(:,1)+imposed_density(l1:l2,m,n,grho_imp)
         if (lreference_state) p%grho(:,1)=p%grho(:,1)+reference_state(:,iref_grho)
 ! 
         if (lpenc_loc(i_glnrho)) then
@@ -2239,6 +2250,7 @@ module Density
       if (lpenc_loc(i_del2rho)) then
         call del2(f,irho,p%del2rho)
         if (lreference_state) p%del2rho=p%del2rho+reference_state(:,iref_d2rho)
+        if (limposed_density) p%del2rho=p%del2rho+imposed_density(l1:l2,m,n,d2rho_imp)
       endif
 ! del2lnrho
       if (lpenc_loc(i_del2lnrho)) p%del2lnrho=p%rho1*p%del2rho-p%glnrho2
@@ -2247,6 +2259,7 @@ module Density
         if (ldiff_hyper3) then
           call del6(f,irho,p%del6rho)
           if (lreference_state) p%del6rho=p%del6rho+reference_state(:,iref_d6rho)
+          if(limposed_density) p%del6rho=p%del6rho+imposed_density(l1:l2,m,n,d6rho_imp)
         elseif (ldiff_hyper3_strict) then
           call del6_strict(f,irho,p%del6rho)
         endif
@@ -2269,6 +2282,12 @@ module Density
         else
           call weno_transp(f,m,n,irho,-1,iux,iuy,iuz,p%transprho,dx_1,dy_1,dz_1)
         endif
+        if (limposed_density) then
+          call weno_transp(f,m,n,irho,-1,iux,iuy,iuz,p%transprho,dx_1,dy_1,dz_1, &
+                           imposed_density(l1:l2,m,n,rho_imp))
+        else
+          call weno_transp(f,m,n,irho,-1,iux,iuy,iuz,p%transprho,dx_1,dy_1,dz_1)
+        endif
       endif
 !
       if (lpenc_loc(i_uuadvec_grho)) then
@@ -2282,7 +2301,6 @@ module Density
     endsubroutine calc_pencils_linear_density_pnc
 !***********************************************************************
     subroutine calc_pencils_log_density_pnc(f,p,lpenc_loc)
-!
 !  Calculate Density pencils for logarithmic density.
 !  Most basic pencils should come first, as others may depend on them.
 !
