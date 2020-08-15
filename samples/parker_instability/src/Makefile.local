@@ -1,0 +1,28 @@
+###                             -*-Makefile-*-
+### Makefile for modular pencil code -- local part
+### Included by `Makefile'
+###
+
+LIBSIG=-L$(HOME)/f90/lib
+# LDMPI=-lmpi
+
+MPICOMM   =   mpicomm
+
+
+HYDRO     =   hydro
+DENSITY   =   density
+ENTROPY   = noentropy
+MAGNETIC  =   magnetic
+RADIATION = noradiation
+PSCALAR   = nopscalar
+COSMICRAY =   cosmicray_nolog
+COSMICRAYFLUX =   cosmicrayflux
+
+GRAVITY   = gravity_simple
+FORCING   = noforcing
+SHEAR     = noshear
+
+INITIAL_CONDITION =   initial_condition/disk_section
+
+# Use double precision
+REAL_PRECISION = double

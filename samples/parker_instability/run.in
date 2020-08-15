@@ -1,0 +1,35 @@
+!                               -*-f90-*-   (for emacs)
+!
+! Run parameters
+!
+&run_pars
+  nt=500000, it1=10, isave=60, itorder=3,
+  cdt=0.4, cdtv=0.06, dtmin=1e-12
+  dvid=5000.0
+  tmax  = 250e-3 ! 250 Myr
+  dsnap =  10e-3 ! Gyr
+  bcz =  's' ,'s', 'a', 'a2', 'a2','a','s', 's', 's',  's',  'a'
+!        ux  , uy,  uz, lnrho,  Ax, Ay, Az, ecr, fcrx, fcry, fcrz
+/
+&eos_run_pars
+/
+&hydro_run_pars
+/
+&density_run_pars
+   lupw_lnrho=T
+/
+&grav_run_pars
+/
+&entropy_run_pars
+/
+&magnetic_run_pars
+    eta=0.05
+/
+&viscosity_run_pars
+  ivisc='nu-const',
+  nu=0.6
+/
+&cosmicray_run_pars
+/
+&cosmicrayflux_run_pars
+/

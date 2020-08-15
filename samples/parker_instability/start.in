@@ -1,0 +1,50 @@
+!                              -*-f90-*-     (for emacs)
+!
+&init_pars
+  ip=14,            ! debugging parameter
+  xyz0  = -3, -6.0, -1.75   ! first corner of box
+  xyz1  =  3,  6.0,  1.75   ! second corner of box
+  lperi = T , T , F        ! periodic direction?
+  bcz =  's' ,'s', 'a', 'a2', 'a2','a','s', 's', 's',  's',  'a'
+!        ux  , uy,  uz, lnrho,  Ax, Ay, Az, ecr, fcrx, fcry, fcrz
+/
+&initial_condition_pars
+  Sigma_g = 10 ! Msun/pc^2
+  fgas = 0.1
+  scaleheight = 0.5 ! kpc
+  Pmag_to_Ptherm = 1.0
+  Pcr_to_Ptherm =  1.0
+  initial_uu_noise = 15
+/
+&eos_init_pars
+  cs0=14.834402983341256
+  cp=1.0
+  gamma=1.0
+/
+&hydro_init_pars
+/
+&density_init_pars
+ ldensity_nolog=T
+ limposed_density=T
+/
+&grav_init_pars
+  gravz_profile = 'tanh'
+  gravz = 2640.714142465967795157 ! 26.40714142465967795157 * Sigma_g / fgas
+  zref  = 0.5 ! Scaleheight
+/
+&entropy_init_pars
+/
+&magnetic_init_pars
+ limposed_magnetic_field=T
+ initaa='gaussian-noise'
+/
+&cosmicray_init_pars
+  cosmicray_diff = 0.05
+  K_para=50
+  K_perp =0.1
+/
+&cosmicrayflux_init_pars
+  tau=0.01
+/
+
+
