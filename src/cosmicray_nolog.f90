@@ -34,9 +34,11 @@ module Cosmicray
   real :: x_pos_cr=.0,y_pos_cr=.0,z_pos_cr=.0
   real :: x_pos_cr2=.0,y_pos_cr2=.0,z_pos_cr2=.0,ampl_Qcr2=0.
   real :: amplecr2=0.,kx_ecr=1.,ky_ecr=1.,kz_ecr=1.,radius_ecr=1.,epsilon_ecr=0.
+  real,dimension(:,:,:,:),pointer:: imposed_cosmicray
   logical :: lnegl = .false.
   logical :: lvariable_tensor_diff = .false.
   logical :: lalfven_advect = .false.
+  logical :: limposed_cosmicray = .true.
   real :: cosmicray_diff=0., ampl_Qcr=0.
   real, target :: K_para=0., K_perp=0.
 !
@@ -45,7 +47,7 @@ module Cosmicray
        radius_ecr,epsilon_ecr,widthecr,ecr_const, &
        gammacr, lnegl, lvariable_tensor_diff,x_pos_cr,y_pos_cr,z_pos_cr, &
        x_pos_cr2, y_pos_cr2, z_pos_cr2, &
-       cosmicray_diff, K_perp, K_para
+       cosmicray_diff, K_perp, K_para, limposed_cosmicray
 !
   real :: limiter_cr=1.,blimiter_cr=0.,ecr_floor=-1.
   logical :: simplified_cosmicray_tensor=.false.
@@ -101,7 +103,8 @@ module Cosmicray
 !
 !  Perform any necessary post-parameter read initialization
 !
-      use SharedVariables, only: put_shared_variable
+      use SharedVariables, only: get_shared_variable,put_shared_variable
+      use InitialCondition, only: initial_condition_all
       real, dimension (mx,my,mz,mfarray) :: f
 !
 !  initialize gammacr1
@@ -113,7 +116,10 @@ module Cosmicray
 !
      call put_shared_variable('K_perp', K_perp, caller='initialize_cosmicray')
      call put_shared_variable('K_para', K_para)
-
+     if(limposed_cosmicray) then
+       call initial_condition_all(f)
+       call get_shared_variable('imposed_cosmicray',imposed_cosmicray)
+     endif
      call keep_compiler_quiet(f)
 
     endsubroutine initialize_cosmicray
@@ -241,8 +247,10 @@ module Cosmicray
       intent(inout) :: p
 ! ecr
       if (lpencil(i_ecr)) p%ecr=f(l1:l2,m,n,iecr)
+      if (limposed_cosmicray) p%ecr=p%ecr+imposed_cosmicray(l1:l2,m,n,ecr_imp)
 ! gecr
       if (lpencil(i_gecr)) call grad(f,iecr,p%gecr)
+      if (limposed_cosmicray)p%gecr(l1:l2,3)=p%gecr(l1:l2,3)+imposed_cosmicray(l1:l2,m,n,gecr_imp)
 ! ugecr
       if (lpencil(i_ugecr)) then
         call u_dot_grad(f,iecr,p%gecr,p%uu,p%ugecr,UPWIND=lupw_ecr)

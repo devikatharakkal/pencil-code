@@ -932,9 +932,9 @@ module Density
       endif
       
      if(limposed_density) then
-        call initial_condition_lnrho(f) 
+        call initial_condition_all(f) 
         call get_shared_variable('imposed_density',imposed_density)
-        if (ldensity_nolog) f(:,:,:,irho) = exp(f(:,:,:,ilnrho))
+        !if (ldensity_nolog) f(:,:,:,irho) = exp(f(:,:,:,ilnrho))
      endif
 !
     endsubroutine initialize_density
@@ -2221,6 +2221,7 @@ module Density
       p%rho=f(l1:l2,m,n,irho)
       if (lreference_state) p%rho=p%rho+reference_state(:,iref_rho)
       if(limposed_density) p%rho=p%rho+imposed_density(l1:l2,m,n,rho_imp)
+!      print*,imposed_density(l1,m,n,rho_imp)
 ! rho1
       if (lpenc_loc(i_rho1)) p%rho1=1.0/p%rho
 ! lnrho
@@ -2229,7 +2230,7 @@ module Density
       if (lpenc_loc(i_glnrho).or.lpenc_loc(i_grho)) then
 !
         call grad(f,irho,p%grho)
-        if(limposed_density) p%grho(:,1)=p%grho(:,1)+imposed_density(l1:l2,m,n,grho_imp)
+        if(limposed_density) p%grho(:,3)=p%grho(:,3)+imposed_density(l1:l2,m,n,grho_imp)
         if (lreference_state) p%grho(:,1)=p%grho(:,1)+reference_state(:,iref_grho)
 ! 
         if (lpenc_loc(i_glnrho)) then

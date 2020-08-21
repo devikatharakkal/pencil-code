@@ -1047,7 +1047,7 @@ module Magnetic
       use Initcond
       use Forcing, only: n_forcing_cont
       use Yinyang_mpi, only: initialize_zaver_yy
-      use InitialCondition, only: initial_condition_aa
+      use InitialCondition, only: initial_condition_all
       !use Slices_methods, only: alloc_slice_buffers
 !
       real, dimension (mx,my,mz,mfarray) :: f
@@ -1719,7 +1719,7 @@ module Magnetic
       endif
       
       if (limposed_magnetic_field) then
-        call initial_condition_aa(f)
+        call initial_condition_all(f)
         call get_shared_variable('imposed_b_field',imposed_b_field)
         call get_shared_variable('imposed_b_field',imposed_a_field)
       endif
