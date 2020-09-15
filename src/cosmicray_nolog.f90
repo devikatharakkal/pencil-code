@@ -38,7 +38,7 @@ module Cosmicray
   logical :: lnegl = .false.
   logical :: lvariable_tensor_diff = .false.
   logical :: lalfven_advect = .false.
-  logical :: limposed_cosmicray = .true.
+  logical :: limposed_cosmicray = .false.
   real :: cosmicray_diff=0., ampl_Qcr=0.
   real, target :: K_para=0., K_perp=0.
 !
@@ -280,6 +280,7 @@ module Cosmicray
       type (pencil_case) :: p
 !
       real, dimension (nx) :: del2ecr,vKperp,vKpara,divfcr,wgecr,divw,tmp,diffus_cr
+      real, dimension(nx,3) :: tmp1
       integer :: j
 !
       intent (in) :: f,p
@@ -318,10 +319,16 @@ module Cosmicray
 !  effect on the momentum equation, (1/rho)*grad(pcr)
 !  cosmic ray pressure is: pcr=(gammacr-1)*ecr
 !
+      if (limposed_cosmicray) tmp1(:,3) = imposed_cosmicray(:,m,n,gecr_imp)
       if (.not.lnegl .and. lhydro) then
         do j=0,2
-          df(l1:l2,m,n,iux+j) = df(l1:l2,m,n,iux+j) - &
+          if (limposed_cosmicray .and. lperturbation) then
+            df(l1:l2,m,n,iux+j) = df(l1:l2,m,n,iux+j) -&
+              gammacr1*p%rho1*(p%gecr(:,1+j)-tmp1(:,j))
+          else
+            df(l1:l2,m,n,iux+j) = df(l1:l2,m,n,iux+j) - &
               gammacr1*p%rho1*p%gecr(:,1+j)
+          endif
         enddo
       endif
 !
