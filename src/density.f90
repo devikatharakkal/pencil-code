@@ -133,7 +133,7 @@ module Density
   real :: h_sld_dens=2.0, nlf_sld_dens=1.0
   real, dimension(3) :: beta_glnrho_global=0.0, beta_glnrho_scaled=0.0
   real, dimension(:,:,:,:),pointer :: imposed_density
-  logical :: limposed_density =.false.
+
 !
   namelist /density_init_pars/ &
       ampllnrho, initlnrho, widthlnrho, rho_left, rho_right, lnrho_const, &
@@ -154,7 +154,7 @@ module Density
       lscale_to_cs2top, density_zaver_range, &
       ieos_profile, width_eos_prof, &
       lconserve_total_mass, total_mass, ireference_state, lrho_flucz_as_aux, &
-      limposed_density
+      limposed_density,lperturbation
 !
   namelist /density_run_pars/ &
       cdiffrho, diffrho, diffrho_hyper3, diffrho_hyper3_mesh, diffrho_shock, &
@@ -2214,6 +2214,7 @@ module Density
       intent(in) :: f
       intent(inout) :: p
       real, dimension(nx) :: tmp
+      real, dimension(nx,3) :: tmp1
 !
       integer :: i
 !
@@ -2251,7 +2252,7 @@ module Density
       if (lpenc_loc(i_del2rho)) then
         call del2(f,irho,p%del2rho)
         if (lreference_state) p%del2rho=p%del2rho+reference_state(:,iref_d2rho)
-        if (limposed_density) p%del2rho=p%del2rho+imposed_density(l1:l2,m,n,d2rho_imp)
+!        if (limposed_density) p%del2rho=p%del2rho+imposed_density(l1:l2,m,n,d2rho_imp)
       endif
 ! del2lnrho
       if (lpenc_loc(i_del2lnrho)) p%del2lnrho=p%rho1*p%del2rho-p%glnrho2
@@ -2260,7 +2261,7 @@ module Density
         if (ldiff_hyper3) then
           call del6(f,irho,p%del6rho)
           if (lreference_state) p%del6rho=p%del6rho+reference_state(:,iref_d6rho)
-          if(limposed_density) p%del6rho=p%del6rho+imposed_density(l1:l2,m,n,d6rho_imp)
+!          if(limposed_density) p%del6rho=p%del6rho+imposed_density(l1:l2,m,n,d6rho_imp)
         elseif (ldiff_hyper3_strict) then
           call del6_strict(f,irho,p%del6rho)
         endif

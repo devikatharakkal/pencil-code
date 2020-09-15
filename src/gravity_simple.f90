@@ -798,6 +798,7 @@ module Gravity
       real, dimension(nx,3) :: gg
       real, dimension(nx) :: refac
       real, dimension(:,:), pointer :: reference_state
+      real, dimension(:,:,:,:), pointer :: imposed_density
 !
 !  Add gravity acceleration on gas.
 !
@@ -830,11 +831,18 @@ module Gravity
           if (lreference_state) then
             call get_shared_variable('reference_state',reference_state,caller='duu_dt_grav')  ! shouldn't be within the mn loop
             refac=1.-reference_state(:,iref_rho)*p%rho1
-            if (lgravx_gas) gg(:,1)=gg(:,1)*refac
-            if (lgravy_gas) gg(:,2)=gg(:,2)*refac
-            if (lgravz_gas) gg(:,3)=gg(:,3)*refac
+!            if (lgravx_gas) gg(:,1)=gg(:,1)*refac
+!            if (lgravy_gas) gg(:,2)=gg(:,2)*refac
+!            if (lgravz_gas) gg(:,3)=gg(:,3)*refac
           endif
-!
+          if (limposed_density .and. lperturbation) then
+            call get_shared_variable('imposed_density',imposed_density,caller='duu_dt_grav')
+            refac=1.-(imposed_density(l1:l2,m,n,rho_imp)*p%rho1)!1.-imposed_density(l1:l2,m,n,rho_imp)*p%rho1
+!           if (lgravx_gas) gg(:,1)=gg(:,1)*refac
+!           if (lgravy_gas) gg(:,2)=gg(:,2)*refac
+            if (lgravz_gas) gg(:,3)=gg(:,3)*refac!
+          endif
+
           if (lxyzdependence) then
             if (lgravx_gas) df(l1:l2,m,n,iux)=df(l1:l2,m,n,iux)+gg(:,1)*zdep(n)
             if (lgravy_gas) df(l1:l2,m,n,iuy)=df(l1:l2,m,n,iuy)+gg(:,2)
@@ -882,7 +890,7 @@ module Gravity
       endif
 !
 !  Gravity 2-D diagnostics.
-!
+!       e
       if (l2davgfirst) then
         call zsum_mn_name_xy(p%epot,idiag_epotmxy)
         call zsum_mn_name_xy(p%epot*p%uu(:,1),idiag_epotuxmxy)

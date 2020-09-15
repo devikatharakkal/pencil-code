@@ -33,6 +33,7 @@ module Energy
   logical :: lviscosity_heat=.false.
   logical, pointer :: lffree, lrelativistic_eos
   real, pointer :: profx_ffree(:),profy_ffree(:),profz_ffree(:)
+  real, dimension(:,:,:,:), pointer :: imposed_density
 !
   integer :: idiag_dtc=0        ! DIAG_DOC: $\delta t/[c_{\delta t}\,\delta_x
                                 ! DIAG_DOC:   /\max c_{\rm s}]$
@@ -145,6 +146,7 @@ module Energy
           call get_shared_variable('profz_ffree',profz_ffree,caller='initialize_energy')
         endif
       endif
+      if (limposed_density) call get_shared_variable('imposed_density',imposed_density,caller='initialize_energy')
 !
       call keep_compiler_quiet(f)
 !
@@ -251,12 +253,14 @@ module Energy
       integer :: j
 !
       intent(in) :: f
+      real, dimension(nx,3) :: tmp = 0.0
       intent(inout) :: p
 ! Ma2
       if (lpencil(i_Ma2)) p%Ma2=p%u2/p%cs2
 !
 !  fpres (=pressure gradient force)
 !
+   if(limposed_density .and. lperturbation) tmp(:,3) = imposed_density(l1:l2,m,n,grho_imp)*p%rho1
       fpres: if (lpencil(i_fpres)) then
         strat: if (lstratz) then
           p%fpres = -spread(p%cs2,2,3) * p%glnrhos
@@ -271,8 +275,13 @@ module Energy
 !
               if (ldensity.and.lrelativistic_eos) then
                 p%fpres(:,j)=-.75*p%cs2*p%glnrho(:,j)
+                print*,'yes'
               else
-                p%fpres(:,j)=-p%cs2*p%glnrho(:,j)
+                if (limposed_density .and. lperturbation) then
+                  p%fpres(:,j)=-p%cs2*(p%glnrho(:,j)-tmp(:,j))
+                else
+                  p%fpres(:,j)=-p%cs2*p%glnrho(:,j)
+                endif
               endif
             endif
 !

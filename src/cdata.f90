@@ -248,7 +248,8 @@ module Cdata
 !
   logical :: ldensity_nolog=.false., lwrite_stratification=.false., &
              lreference_state=.false., lfullvar_in_slices=.false., &
-             lsubstract_reference_state=.false.
+             lsubstract_reference_state=.false., lperturbation=.false.,&
+             limposed_density=.false.,limposed_magnetic_field=.false.
   logical :: lmpicomm=.false., lforcing_cont=.false.
   logical :: lpostproc=.false.
   logical :: lwrite_slices=.false., lwrite_1daverages=.false., lwrite_2daverages=.false.
@@ -721,6 +722,6 @@ module Cdata
   integer :: rho_imp,grho_imp, d2rho_imp,d6rho_imp
 ! imposed magnetic field arrays.
   integer :: bb_imp,del2_imp,bij_imp,aa_imp,aij_impx,aij_impy,aij_impz
-  integer :: bij_impx,bij_impy,bij_impz
+  integer :: bij_impx,bij_impy,bij_impz,ecr_imp,gecr_imp
 !***********************************************************************
 endmodule Cdata

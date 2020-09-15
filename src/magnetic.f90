@@ -231,7 +231,6 @@ module Magnetic
   logical :: lambipolar_diffusion=.false.
   logical :: lskip_projection_aa=.false., lno_second_ampl_aa=.true.
   logical :: lscale_tobox=.true.
-  logical :: limposed_magnetic_field= .false.
 !
   namelist /magnetic_init_pars/ &
       B_ext, B0_ext, t_bext, t0_bext, J_ext, lohmic_heat, radius, epsilonaa, &
@@ -258,7 +257,8 @@ module Magnetic
       lbx_ext_global,lby_ext_global,lbz_ext_global, dipole_moment, &
       lax_ext_global,lay_ext_global,laz_ext_global, eta_jump2, &
       sheet_position,sheet_thickness,sheet_hyp,ll_sh,mm_sh, &
-      source_zav,nzav,indzav,izav_start, k1hel, k2hel, lbb_sph_as_aux,limposed_magnetic_field
+      source_zav,nzav,indzav,izav_start, k1hel, k2hel,lbb_sph_as_aux,&
+      limposed_magnetic_field
 !
 ! Run parameters
 !
@@ -1721,7 +1721,6 @@ module Magnetic
       if (limposed_magnetic_field) then
         call initial_condition_all(f)
         call get_shared_variable('imposed_b_field',imposed_b_field)
-        call get_shared_variable('imposed_b_field',imposed_a_field)
       endif
 !
 !  Break if Galilean-invariant advection (fargo) is used without
@@ -3316,6 +3315,7 @@ module Magnetic
       real, dimension (nx) :: rho1_jxb, quench, StokesI_ncr, tmp1
       real, dimension(3) :: B_ext
       real :: c,s
+!      real, dimension(nx,3) :: tmp1
       integer :: i,j,ix
 ! aa
       if (lpenc_loc(i_aa)) p%aa=f(l1:l2,m,n,iax:iaz)
@@ -3328,9 +3328,9 @@ module Magnetic
 ! aij
       if (lpenc_loc(i_aij)) call gij(f,iaa,p%aij,1)
       if (lpenc_loc(i_aij) .and. limposed_magnetic_field) then
-        p%aij(l1:l2,1,:)=p%aij(l1:l2,1,:)+imposed_b_field(l1:l2,n,:,aij_impx)
-        p%aij(l1:l2,2,:)=p%aij(l1:l2,2,:)+imposed_b_field(l1:l2,n,:,aij_impy)
-        p%aij(l1:l2,3,:)=p%aij(l1:l2,3,:)+imposed_b_field(l1:l2,n,:,aij_impz)
+        p%aij(l1:l2,1,3)=p%aij(l1:l2,1,3)+imposed_b_field(l1:l2,n,1,aij_impx)
+!        p%aij(l1:l2,2,:)=p%aij(l1:l2,2,:)+imposed_b_field(l1:l2,n,:,aij_impy)
+!        p%aij(l1:l2,3,:)=p%aij(l1:l2,3,:)+imposed_b_field(l1:l2,n,:,aij_impz)
       endif
 ! diva
       if (lpenc_loc(i_diva)) then
@@ -3392,7 +3392,7 @@ module Magnetic
 !          call get_global(bb_ext_pot,m,n,'B_ext_pot')
 !          p%bb=p%bb+bb_ext_pot
 !        endif
-        if(limposed_magnetic_field) p%bb = p%bb + imposed_b_field(l1:l2,n,:,bb_imp)
+        if(limposed_magnetic_field) p%bb(:,2) = p%bb(:,2) + imposed_b_field(l1:l2,n,2,bb_imp)
 !
 !  Add external B-field.
 !
@@ -3499,9 +3499,9 @@ module Magnetic
           call gij_etc(f,iaa,BIJ=p%bij,DEL2=p%del2a)
           if(limposed_magnetic_field) p%del2a=p%del2a + imposed_b_field(l1:l2,n,:,del2_imp)
           if (limposed_magnetic_field) then
-             p%bij(l1:l2,1,:)=p%bij(l1:l2,1,:) + imposed_b_field(l1:l2,n,:,bij_impx)
-             p%bij(l1:l2,2,:)=p%bij(l1:l2,2,:) + imposed_b_field(l1:l2,n,:,bij_impy)
-             p%bij(l1:l2,3,:)=p%bij(l1:l2,3,:) + imposed_b_field(l1:l2,n,:,bij_impz)
+!             p%bij(l1:l2,1,:)=p%bij(l1:l2,1,:) + imposed_b_field(l1:l2,n,:,bij_impx)
+!             p%bij(l1:l2,2,:)=p%bij(l1:l2,2,:) + imposed_b_field(l1:l2,n,:,bij_impy)
+!             p%bij(l1:l2,3,:)=p%bij(l1:l2,3,:) + imposed_b_field(l1:l2,n,:,bij_impz)
           endif
           if (lpenc_loc(i_jj) .and. .not. ljj_as_comaux) call curl_mn(p%bij,p%jj)
         else
@@ -3563,6 +3563,7 @@ module Magnetic
 ! jj
       if (lpenc_loc(i_jj)) then
 ! consistency check...
+        if (limposed_magnetic_field) p%jj(:,1) =p%jj(:,1) + imposed_b_field(l1:l2,n,1,bij_impz)
         p%jj=mu01*p%jj
 !
 !  Add external j-field.
@@ -3639,7 +3640,13 @@ module Magnetic
         if (eta_min > 0.) where (p%etajrho < eta_min) p%etajrho = 0.
       endif
 ! jxb
-      if (lpenc_loc(i_jxb)) call cross_mn(p%jj,p%bb,p%jxb)
+      if (lpenc_loc(i_jxb)) then
+        call cross_mn(p%jj,p%bb,p%jxb)
+        if (lperturbation) then
+          call cross_mn(imposed_b_field(l1:l2,n,:,bij_impz),imposed_b_field(l1:l2,n,:,bb_imp),tmp)
+          p%jxb=p%jxb-tmp
+        endif
+      endif
 !
 ! cosjb
       if (lpenc_loc(i_cosjb)) then
@@ -4907,7 +4914,7 @@ module Magnetic
           uxb_upw=0.
         endif
         if (limposed_magnetic_field) then
-          call cross(p%uu,imposed_b_field(l1:l2,n,:,bb_imp),uxb_upw)
+         ! call cross(p%uu,imposed_b_field(l1:l2,n,:,bb_imp),uxb_upw)
         endif
 !
 !  Add u_k A_k,j and `upwinded' advection term.
