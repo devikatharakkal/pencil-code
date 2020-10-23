@@ -1,4 +1,4 @@
-! $Id$
+!$Id$
 !
 !  This module takes care of the continuity equation.
 !
@@ -2261,7 +2261,7 @@ module Density
         if (ldiff_hyper3) then
           call del6(f,irho,p%del6rho)
           if (lreference_state) p%del6rho=p%del6rho+reference_state(:,iref_d6rho)
-!          if(limposed_density) p%del6rho=p%del6rho+imposed_density(l1:l2,m,n,d6rho_imp)
+          if(limposed_density) p%del6rho=p%del6rho+imposed_density(l1:l2,m,n,d6rho_imp)
         elseif (ldiff_hyper3_strict) then
           call del6_strict(f,irho,p%del6rho)
         endif
@@ -3336,6 +3336,7 @@ module Density
       real, save :: density_floor_log
       logical, save :: lfirstcall=.true.
       integer :: i, j, k
+      real,dimension(mx,my,mz) :: tmp
 !
 !  Impose the density floor.
 !
@@ -3352,6 +3353,18 @@ module Density
               f(:,:,:,ilnrho)=density_floor_log
         endif
       endif
+      if (limposed_density .and. lcheck_negative_density) then
+        tmp = f(:,:,:,irho) + imposed_density(:,:,:,rho_imp)
+        if (any(tmp(:,:,:) < 1.00E-03)) then
+        do k=n1,n2
+          do j = m1,m2
+            do i = l1,l2
+             !if(tmp(i,j,k) < 1.00E-03) f(i,j,k,irho) = -1.*imposed_density(i,j,k,rho_imp) + 1.73e-3
+            enddo
+          enddo
+        enddo
+        endif
+      endif 
 !
 !  Trap any negative density if no density floor is set.
 !
@@ -3360,12 +3373,13 @@ module Density
           do k = n1, n2
             do j = m1, m2
               do i = l1, l2
-                if (f(i,j,k,irho) <= 0.) print 10, f(i,j,k,irho), x(i), y(j), z(k)
-                10 format (1x, 'rho = ', es13.6, ' at x = ', es13.6, ', y = ', es13.6, ', z = ', es13.6)
+ !               if (f(i,j,k,irho) <= 0.) print 10, f(i,j,k,irho), x(i), y(j), z(k)
+ !               10 format (1x, 'rho = ', es13.6, ' at x = ', es13.6, ', y = ', es13.6, ', z = ', es13.6)
+!                if (f(i,j,k,irho) < 0.) f(i,j,k,irho) =imposed_density(i,j,k,rho_imp)
               enddo
             enddo
           enddo
-          call fatal_error_local('impose_density_floor', 'negative density detected')
+!          call fatal_error_local('impose_density_floor', 'negative density detected')
         endif
       endif
 !

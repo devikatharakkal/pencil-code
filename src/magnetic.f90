@@ -299,6 +299,12 @@ module Magnetic
   real, dimension(nx,3) :: geta_r
   real, dimension(nx) :: va2max_beta=1.
   real, dimension(nz) :: clight2_zdep=1.
+!    - Please do not put very specific subroutines here. If a subroutine
+!      is only needed by a single module, put it directly in that module.
+!
+!    - Please DO NOT use large arrays or global arrays
+!      [e.g. of size (mx,my,mz) or (nxgrid,nygrid,nzgrid)]
+!
   logical :: lfreeze_aint=.false., lfreeze_aext=.false.
   logical :: lweyl_gauge=.false., ladvective_gauge=.false.
   logical :: lupw_aa=.false., ladvective_gauge2=.false.
@@ -3320,7 +3326,7 @@ module Magnetic
 ! aa
       if (lpenc_loc(i_aa)) p%aa=f(l1:l2,m,n,iax:iaz)
       if (lpenc_loc(i_aa) .and. limposed_magnetic_field) then
-         p%aa=p%aa +imposed_b_field(l1:l2,n,:,aa_imp)
+!         p%aa=p%aa +imposed_b_field(l1:l2,n,:,aa_imp)
       endif
 
 ! a2
@@ -3328,7 +3334,7 @@ module Magnetic
 ! aij
       if (lpenc_loc(i_aij)) call gij(f,iaa,p%aij,1)
       if (lpenc_loc(i_aij) .and. limposed_magnetic_field) then
-        p%aij(l1:l2,1,3)=p%aij(l1:l2,1,3)+imposed_b_field(l1:l2,n,1,aij_impx)
+!        p%aij(l1:l2,1,3)=p%aij(l1:l2,1,3)+imposed_b_field(l1:l2,n,1,aij_impx)
 !        p%aij(l1:l2,2,:)=p%aij(l1:l2,2,:)+imposed_b_field(l1:l2,n,:,aij_impy)
 !        p%aij(l1:l2,3,:)=p%aij(l1:l2,3,:)+imposed_b_field(l1:l2,n,:,aij_impz)
       endif
@@ -3563,7 +3569,7 @@ module Magnetic
 ! jj
       if (lpenc_loc(i_jj)) then
 ! consistency check...
-        if (limposed_magnetic_field) p%jj(:,1) =p%jj(:,1) + imposed_b_field(l1:l2,n,1,bij_impz)
+        if (limposed_magnetic_field) p%jj(:,1) =p%jj(:,1) + imposed_b_field(l1:l2,n,1,bij_impx)
         p%jj=mu01*p%jj
 !
 !  Add external j-field.
@@ -3582,7 +3588,7 @@ module Magnetic
             enddo
           else
             do j=1,3
-              p%jj(:,j)=p%jj(:,j)-J_ext(j)
+             p%jj(:,j)=p%jj(:,j)-J_ext(j)
             enddo
           endif
         endif
@@ -3643,7 +3649,7 @@ module Magnetic
       if (lpenc_loc(i_jxb)) then
         call cross_mn(p%jj,p%bb,p%jxb)
         if (lperturbation) then
-          call cross_mn(imposed_b_field(l1:l2,n,:,bij_impz),imposed_b_field(l1:l2,n,:,bb_imp),tmp)
+          call cross_mn(imposed_b_field(l1:l2,n,:,bij_impx),imposed_b_field(l1:l2,n,:,bb_imp),tmp)
           p%jxb=p%jxb-tmp
         endif
       endif
@@ -3787,6 +3793,7 @@ module Magnetic
       endif
 ! del6a
       if (lpenc_loc(i_del6a)) call del6v(f,iaa,p%del6a)
+       p%del6a=p%del6a+imposed_b_field(l1:l2,n,:,bij_impy)
 ! e3xa
       if (lpenc_loc(i_e3xa)) then
         call cross_mn(-p%uxb+eta_hyper3*p%del6a,p%aa,p%e3xa)
@@ -8619,6 +8626,10 @@ module Magnetic
 !  ... and its gradient.
 !
           if (present(geta_z)) geta_z = eta_power_z*eta_z/(eta_z0+z)
+!eta parker:devik
+         case('parker')
+          eta_z = eta*(1.0 +(z/0.3)**2)
+          if(present(geta_z)) geta_z = eta*(2*(z/0.3))
       endselect
 !
     endsubroutine eta_zdep
